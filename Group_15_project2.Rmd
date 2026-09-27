@@ -1,6 +1,6 @@
 ---
 title: "Group_15_project2"
-author: "Seoyoung Moon(02015506), Sungju Oh (01916170), Hyerin Han (02014850), Seoyoung Park "
+author: "Seoyoung Moon, Sungju Oh, Hyerin Han, Seoyoung Park"
 date: "2024-03-26"
 output: html_document
 ---
