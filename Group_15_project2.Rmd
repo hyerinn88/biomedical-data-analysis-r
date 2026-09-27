@@ -1,0 +1,390 @@
+---
+title: "Group_15_project2"
+author: "Seoyoung Moon(02015506), Sungju Oh (01916170), Hyerin Han (02014850), Seoyoung Park "
+date: "2024-03-26"
+output: html_document
+---
+
+
+```{r}
+library(faraway)
+data("prostate")
+prostate <- prostate[, c(1:3,5,7,9)]
+set.seed(1)
+trainingSet <- round(0.80 * nrow(prostate)) # 80% for the training data
+train_idx <- sample(1:nrow(prostate), trainingSet)
+prostate_train <- prostate[train_idx, ]
+prostate_test <- prostate[-train_idx, ]
+
+# Just to confirm the split
+message("Number of row in training dataset: ", nrow(prostate_train))
+message("Number of row in training dataset: ", nrow(prostate_test))
+```
+**3.1 Statistical analyses and model building**
+
+**1. Make a scatter matrix of the continuous predictors and the lpsa variable. Based on this plot, answer the following questions: (a) Is there an association between gleason and lpsa? (b) Is there an association between the tumor volume and lpsa?**
+
+```{r}
+library(ggplot2)
+library(GGally)
+```
+
+```{r}
+scatter_plot <- function(data, mapping, ...) {
+  ggplot(data, mapping) +
+  geom_point(size = 0.7) +
+  geom_smooth(formula = y ~ x, method = lm, color = "red")
+}
+
+ggpairs(prostate_train, c(1,2,3,4,5,6), lower = list(continuous = scatter_plot))
+```
+
+Scatter plots can be used to examine the correlation coefficients between variables and thereby infer the associations between them. The upper right part of the matrix displays the correlation coefficients between each pair of variables. The correlation coefficient represents the linear association between two variables. This value is always between -1 and 1, with values close to +1 indicating a positive correlation, and those close to -1 indicating a negative correlation. A positive correlation suggests that as one variable increases, the other tends to increase as well, while a negative correlation suggests that as one variable increases, the other tends to decrease. Moreover, as the value approaches the absolute value of 1, it implies a stronger relationship between the variables. A value of 0 indicates no linear relationship. Typically, an absolute value of 0.9 or above is considered a very strong correlation, 0.7 to less than 0.9 a strong correlation, 0.5 to less than 0.7 a moderate correlation, 0.3 to less than 0.5 a weak correlation, and less than 0.3 suggests little to no correlation. The lower left part of the matrix shows scatter plots of two variables with trend lines. The trend lines indicate the linear pattern between the variables, which is related to their correlation.
+
+(a) 
+Regarding the relationship between gleason and lpsa, a correlation of 0.346 suggests that there might be a weak positive linear correlation between the two variables, indicating that as gleason increases, lpsa tends to increase as well. However, given the wide dispersion of lpsa values for each gleason score, indicating a large range of error, the correlation might be considered weaker. Therefore, it is difficult to assert a strong correlation between gleason and lpsa, and the trend line also does not show a high magnitude.
+
+(b)
+For the relationship between tumor volume and lpsa, with a correlation of 0.713, it can be said to have a strong positive linear correlation. This presents the strongest correlation value among the correlations in the matrix. Also, when examining the trend line, it shows a value closest to 1 among the pair of variables. Hence, it can be concluded that as lcavol (tumor volume) increases, lpsa also increases, and this relationship is the strongest among those in the matrix.
+
+
+**2. Build a simple regression model with the lpsa variable as the response variable and lcavol as a predictor. State the assumptions for a linear regression model and check whether these assumptions hold.**
+
+```{r}
+#scatter plot
+plot(x = prostate_train$lcavol, y = prostate_train$lpsa, xlab = "lcavol", ylab = " logarithm of the prostate specific antigen", main=" lpsa vs lcavol")
+
+# Fit a curve through the points cloud (solid line)
+lines(lowess(prostate_train$lcavol, prostate_train$lpsa), lty = 1)
+
+# Fit a line through the point cloud using least squares method (dotted line)
+abline(lsfit(prostate_train$lcavol, prostate_train$lpsa), lty = 2) 
+```
+
+From the graph above, it can be seen once again that lsa and lcavol are relatively well approximated linearly. Therefore, we can assume a linear relationship between lsa and lcavol. Therefore, we can create a framework of the formula of simple linear regression based on the graph above.
+$E(Y|X = x) = \beta_0 + \beta_1 x$, with $X$ the lcavol and $Y$ the lasa that is logarithm of the prostate specific antigen.
+
+Now that we have confirmed the linear relationship between the two variables, we can perform linear regression analysis. Through the codes below, we will be able to obtain coefficients of the linear regression formula. 
+
+lpsa is dependence variable (in y-axis) and lcavol is dependent variable (in x-axis)
+```{r}
+model <- lm(lpsa ~ lcavol, data = prostate_train) 
+summary(model)
+```
+
+From the above results, it may be confirmed that the p-value of lcavol is less than 0.05. Therefore, it may be seen that lcavol is a signiﬁcant variable.
+In addition, the fact that the standard error is also less than 1 and the t-value is large can confirm once again that lcavol is a signature variable.Furthermore, a Multiple R-squared value of 0.5081 indicates that the model in linear regression explains approximately 50.81% of the variability in the data.
+
+That is, from the results of the summary, it can be confirmed that $\beta_0=1.62650$ and $\beta_1=0.68979$ in $lpsa= \beta_0 + \beta_1 lcavol$. We can understand that when the independent variable lcavol increases by one unit, the average of lpsa increases by 0.68979.Furthermore, we can determine that when lcavol is 0, lpsa has a value of 1.62650
+
+we tested the assumptions of the hypotheses to confirm the validity of the linear regression anaysis that we did. We're going to check four assumptions.
+ - Independence of observations
+ - Normally distributed residuals
+ - Linearity between response and predictor
+ - Homoscedasticity.
+ 
+firstly, since data were collected in different environments for each patient, each patient cannot directly affect the prostate specific antigen of the other patient, so we can conclude that it is an independent observation for the data.
+```{r}
+#linearity
+
+# Scatter plot of fitted values versus residuals.
+plot(fitted(model), resid(model), main="residuals vs fitted")
+# Horizontal line through 0. The residuals should be distributed normally across this line.
+abline(h = 0, lty = 2)
+# The best fitting line. This line should approximate reasonably well the horizontal line drawn previously.
+lines(lowess(fitted(model), resid(model)))
+```
+
+If the residuals are well distributed at random around the Y=0 line, and there is no pattern in which the residuals systematically increase or decrease as the fit value increases, the linearity assumption is reasonable. In our case, we conclude that the curve holds the linearity assumption because it is well approximated to the horizontal line.
+
+To see if the homoscedasticity assumption is satisfied, we create a scatter plot of squared residuals as a function of predictor. If the equal variance assumption is satisfied, the square residual does not show a fanning out but instead has a constant variance on the straight line.
+```{r}
+#homosedasticity
+standardisedResiduals = resid(model)/summary(model)$sigma 
+
+#residual^2 scatter plot
+plot(x = fitted(model), y = sqrt(abs(standardisedResiduals)), main="scale-location")
+
+lines(lowess(x = fitted(model), y =sqrt(abs(standardisedResiduals))), col = "red")
+```
+
+The variance of observations should be evenly distributed along the red line above. In other words, the sizes of the upper and lower data should be similar relative to the red line. However, in the case of the graph above, there are parts where the sizes of the upper and lower data are not similar. Differences of around 1.4 among the three datasets or 1.8, 2.2, etc., can be observed in certain parts of the graph. Therefore, it can be concluded that the graph above does not satisfy homoscedasticity.
+
+Next, we will use a QQ plot to check for normality. Through this, we can determine if the residuals follow a normal distribution.
+```{r}
+#Normally distributed residuals
+qqnorm(resid(model)) #QQ-plot
+qqline(resid(model))
+```
+
+In the case above, it can be observed that the data from the far left and far right do not closely follow the baseline of normality and deviate from a linear distribution. Therefore, we can conclude that our data cannot hold normality.
+
+Let's take another look at each assumption at a glance and verify if each assumption can be upheld.
+```{r}
+par(mfrow = c(2,2))
+plot(model)
+```
+
+**Conclusions:** Upon examining the summarized graph, we can see that we do not hold normality and homoscedasticity well. Therefore, we can attempt to transform the dependent variable to hold these assumptions.
+
+
+**3. Now, build an optimal multiple regression model (using the forward model selection procedure), which describes the relationship between the lpsa variable as the response and all the continuous predictors. Do not check for higher-order or interaction terms. Check whether the assumptions for a linear model hold for your optimized model.**
+
+```{r}
+model <- lm (lpsa ~ 1, data = prostate_train)
+summary(model)
+```
+Using the forward model selection procedure, starting from the null model, lcavol, lweight, and age are sequentially included in the model.
+
+```{r}
+# Add 'lcavol'
+model1 <- lm(lpsa ~ lcavol, data = prostate_train)
+summary(model1)
+```
+When lcavol is added firstly, it has p-vlaue as 2.48e-13 which is much lower than the significant level. Therefore, the lcavol is the significant predictor.
+```{r}
+# Add 'lweight'
+model2 <- lm(lpsa ~ lcavol + lweight, data = prostate_train)
+summary(model2)
+```
+ Therefore, using the model that includes lcavol, lweight is added next. If the lweight is added in the previous model, the lweight gets 0.0291 for p-value. This p-value, like lcavol, is not much lower than 0.05, but it is also a significant predictor. Therefore, similarly, the model including lweight from the previous step can be used.
+```{r}
+# Add 'age'
+model3 <- lm(lpsa ~ lcavol + lweight + age, data = prostate_train)
+summary(model3)
+```
+Lastly, the age variable is included and the p-value is 0.5686, which indicates age predictor should not be contained in the model. Therefore, the final model in problem3 sets lacavol and lweight as the predictors $lpsa = 0.21592 + 0.66613*lcavol + 0.39484*lweight$.
+
+```{r}
+# Check for assumptions
+par(mfrow = c(2,  2))
+plot(model2)
+```
+
+The assumption of independent observations is satisfied. The Residuals vs Fitted plot helps to check whether the residuals have a pattern or not. Our graph seems to be linear, so the linearity of the model is satisfied. The QQ residual plot has a straight line, which indicates the residuals are normally distributed. The homoscedasticity assumption is assessed by the scale-location plot. Between 1 and 1.5 values in the plot, the variance of observations is not evenly distributed. Therefore, the model does not satisfy homoscedasticity. The last plot is not needed in the assumption of the model. As a result, the categorical variables should be added to the model to satisfy the assumptions.
+
+**4. Create a new model by adding the categorical variable to the model in 3 and compare both models to determine which is a better fit.**
+
+```{r}
+# Adding categorical variables
+
+# Add 'svi'
+model1 <- lm(lpsa ~ lcavol + lweight + svi, data = prostate_train)
+summary(model1)
+
+```
+The final model in the previous problem had formula as $lpsa = 0.21592 + 0.66613*lcavol + 0.39484*lweight$. The categorical variables are svi and gleason in this problem. If svi is added in the previous formula, using forward selection, it gets p-value (0.00122) which is lower than the significant level (0.05). Therefore, svi predictor should be included in the formula. 
+```{r}
+# Add 'gleason'
+model2 <- lm(lpsa ~ lcavol + lweight + svi + gleason, data = prostate_train)
+summary(model2)
+
+```
+Furthermore, gleason can be added to the previous formula including svi. The gleason predictor has p-value as 0.55813 and it is higher than the significant level, which indicates the gleason predictor is not significant. As a result, the final model should include lcavol, lweight, svi and gleason for the predictors. Consequently, the model in problem 4 is $lpsa = 0.22039 + 0.52324*lcavol + 0.77148*svi + 0.40229*lweight$.
+
+```{r}
+# Final model in problem 4
+model4_final <- lm(lpsa ~ lcavol + lweight + svi, data = prostate_train)
+
+# Check for assumptions
+par(mfrow = c(2,  2))
+plot(model4_final)
+```
+
+
+The assumption of independent observations is satisfied. The Residuals vs Fitted plot seems to be linear, so the linearity of the model is satisfied. The QQ residual plot has a straight line, which indicates the residuals are normally distributed. The homoscedasticity assumption is assessed by the scale-location plot. Some parts also can be seen where the size of the upper and lower sections is not exactly the same, but most of the data has a similar size for the upper and lower parts. Therefore, the model does not satisfy homoscedasticity. The last plot is not needed in the assumption of the model. As a result, since the model satisfies all the assumptions, it can be concluded that the model is valid.
+
+
+```{r}
+# Final model in problem 3
+model3_final <- lm(lpsa ~ lcavol + lweight, data = prostate_train)
+
+# Final model in problem 4
+model4_final <- lm(lpsa ~ lcavol + lweight + svi, data = prostate_train)
+
+# ANOVA test for the final model
+anova(model3_final, model4_final)
+
+# Comparing adjusted R-squared value
+summary(model3_final)
+summary(model4_final)
+```
+To know which of the two models is better, we should run ANOVA test of two models. The model in problem 3 and model in problem 4 proceed ANOVA test for compariosn. Then the model in problem 4 which contains svi predictor has the p-value as 0.001225. Since the p-value is less than 0.05, we can reject the null hypothesis that there is no difference between models 3 and 4.(Thus, the null hypothesis means that the added predictor variables (e.g., 'svi') do not provide a significant improvement in the predictive performance of the model.) Therefore, we can conclude that the model with categorical variables, Model 4, is better than Model 3 without categorical variables.
+
+Additionally, when comparing the multiple R-squared values, model 3 has a value of 0.5385, while model 4 has a value of 0.5997. This value indicates the percentage of data variability that the model can explain. In the case of model 4, it can explain 59.97% of the variability, so we can say that it explains slightly more variability than model 3. Also, with adjusted R-squared, the comparison between two models can proceed. The adjusted R-squared of model3 is 0.5262 and model4 is 0.5835. Adjusted R-squared takes into account the number of predictors in the model. It is used to prevent overfitting as the number of variables increases, providing a more accurate assessment of the model's explanatory power. Since the model4 has the larger adjusted R-squared value, the model4 is a better fit. Therefore, the final model of multiple linear regression is $lpsa = 0.22039 + 0.52324*lcavol + 0.77148*svi + 0.40229*lweight$. This means that when all predictors are 0, lpsa is 0.22039, and when svi and lweight are held constant, an increase of 1 unit in lcavol results in a 0.52324 increase in lpsa. Additionally, when all predictors except svi are held constant and svi increases by 1 unit, lpsa is expected to increase by 0.77148. Lastly, keeping lweight constant and adjusting all other predictors, increasing lweight by 1 unit leads to a 0.40229 increase in lpsa.
+
+
+
+**5. Perform a partial least squares regression (PLSR) and print the model summary. In the invocation of the PLSR command, use appropriate arguments to scale the data and use cross validation as a validation strategy. Make sure that all predictors are included in the model at the same time. What is your conclusion? For this question, you will need to install the pls package. Next, take a look at section 3 (“Example session”) in the manual for the package, available at https://cran. r-project.org/web/packages/pls/vignettes/pls-manual.pdf, for an idea of how to use the package. Remember that you can also consult the RStudio help to know what arguments a particular function supports.**
+
+We are aiming to create and compare several regression models that include up to five principal components (PCs) to determine which fits our data best. Therefore, we build multiple regression models varying in the number of PCs and assess each model's performance using the Root Mean Square Error of Prediction (RMSEP) metric. Additionally, we have employed cross-validation as our model evaluation technique, which involves splitting the dataset into several parts, using some for training and others for testing.
+
+
+```{r}
+library(pls)
+plsr_model <- plsr(lpsa ~ lcavol + lweight + age + svi + gleason, 
+             data = prostate_train,
+             scale = TRUE,
+             validation = "CV")
+summary(plsr_model)
+```
+
+From the results of cross-validation, we can observe the values of RMSEP. RMSEP decreases as the model's accuracy increases. Therefore, we can determine the appropriate number of PCs by identifying when the RMSEP decreases. As the number of principal components increases, the RMSEP value decreases, reaching its lowest when there are two principal components and then stabilizes with little to no change thereafter. This indicates that the model performs best when utilizing two principal components. The addition of further principal components does not enhance the model's performance. Therefore, the model using three principal components has the lowest RMSEP, meaning it effectively captures the major variability. From training data, it has been observed that using two principal components, the model can explain 60.28% of the variability in lpsa.
+
+
+**6. What is the variability explained by each component of the PLSR model? Make one plot each for the number of components against RMSEP, and R^2.**
+
+```{r}
+selectNcomp(plsr_model, method="onesigma", plot=TRUE, col = "red", main = "RMSEP vs Number of components")
+validationplot(plsr_model, val.type="R2", main = "R2 vs Number of components")
+```
+
+From the last part of the `summary(plsr_model)`, we can see how much variability each PC explains. After training with the data, we find that using two principal components, the model can explain 60.28% of the variability in lpsa, and it can explain 54.75% of the variability in the original independent variable dataset. This means that using two principal components, about 3/5 of the data in lpsa can be explained by these components alone. Additionally, using one PC, the model can explain 38.48% of the variability in the independent variable dataset and 56.30% of the variability in lpsa. Using three PCs, it explains 71.39% and 60.45%, respectively; with four PCs, it explains 88.82% and 60.47%; and finally, using five PCs, it explains 100% and 60.47%, respectively.
+
+The R-square value shows the proportion of the data's variability that the model explains. An R-square value range from 0 to 1 and close to 1 indicates that the model explains the data well. Conversely, a low value indicates that the model does not explain the variability in the data effectively. The R-square graph allows us to assess how much additional principal components improve the model's explanatory power. In our case, since the R-square value does not increase significantly after adding PC2, this principal component does not add much important information.
+
+Using the `selectNcomp` function to view the RMSEP graph, we can select a model that avoids overfitting while still retaining sufficient explanatory power. This also shows that although the RMSEP values for component 1 and 2 are similar, considering the size difference in the error bars and the standard deviation, selecting only one PC might be a better conclusion. Therefore, we can use one PC to explain 56.30% of the variability in lpsa and 38.48% of the variability in the original independent variable dataset.
+
+**3.2 Comparative analysis and results**
+**1. Determine which of the two models (MLR and PLSR) performs better using the following metrics: mean absolute error (MAE) and R2 . Make use of the first two components in the partial least square regression model. What is your conclusion? **
+
+```{r}
+# Multiple Linear Regression model
+MLR <- lm(lpsa ~ lcavol + lweight + svi, data = prostate_test)
+
+summary(MLR)
+```
+Using the multiple linear regression model from the previous problem, we can make a model with the prostate_test data. Therefore, the MLR model of test data is $lpsa = -2.4708 + 0.5721*lcavol + 0.1649*svi + 1.0426*lweight$.
+
+
+```{r}
+# Partial Least Squares Regression model
+library(pls)
+PLSR <- plsr(lpsa ~ lcavol + lweight + age + svi + gleason, 
+             data = prostate_test,
+             scale = TRUE,
+             validation = "CV",
+             ncomp = 2)
+summary(PLSR)
+```
+Also, with the partial least squares regression model, we can get a model with the prostate_test data. The number of the components is given as 2, so the 'ncomp = 2' is also added to the model.
+
+
+```{r}
+# Compare two models using MAE
+MAE_MLR <- mean(abs(prostate_test$lpsa - predict(MLR)))
+MAE_PLSR <- mean(abs(prostate_test$lpsa - predict(PLSR)))
+MAE_MLR
+MAE_PLSR
+```
+The mean absolute error (MAE) is the measure of errors between paired observations expressing the same phenomenon. The MAE is calculated as mean(abs(prostate_test$lpsa - predict(model))). The lower the MAE value, the better the model may fit the data. When comparing MLR and PLSR models, we can know that the MAE value of MLR(0.3715947) is lower than the MAE value of PLSR(0.459284).
+
+```{r}
+# Compare two models using R-squared
+
+# Calculate R2 of MLR
+SSE_MLR <- sum((fitted(MLR) - prostate_test$lpsa)^2) # = sum(MLR$residuals^2)
+SSR_MLR <- sum((fitted(MLR) - mean(prostate_test$lpsa))^2)
+SST_MLR <- SSR_MLR + SSE_MLR
+
+R2_MLR <- SSR_MLR / SST_MLR #  = 1 - SSE_MLR / SST_MLR
+R2_MLR
+```
+```{r}
+# Calculate R2 of PLSR
+SSE_PLSR <- sum((fitted(PLSR) - prostate_test$lpsa)^2) # = sum(PLSR$residuals^2)
+SSR_PLSR <- sum((fitted(PLSR) - mean(prostate_test$lpsa))^2)
+SST_PLSR <- SSR_PLSR + SSE_PLSR
+
+R2_PLSR <- SSR_PLSR / SST_PLSR #  = 1 - SSE_PLSR / SST_PLSR
+R2_PLSR
+```
+The sum of squares error (SSE) is the difference between the observed and predicted values. Therefore it is calculated by sum((fitted(model) - prostate_test$lpsa)^2) or sum(model$residuals^2).
+
+The sum of squares regression (SSR) is the sum of the diffference between the predicted value and the mean of the dependendt variable. It is determined by sum((fitted(model) - mean(prostate_test$lpsa))^2). 
+
+The sum of squares total (SST) is the sum of squared differences between the observed dependent variables and the overall mean. It is measured as SSR + SSE. 
+
+Then the R-squared can be calculated using SSR, SSE, and SST. The R2 is calculated as SSR/SST or 1 - SSE/SST. Therefore, the R2 value of the MLR model was calculated as 0.81772 and the PLSR model's R2 was 0.7787898. R-squared is a metric indicating how well a regression model explains the variability of the data. A higher value suggests that the model better explains the data.
+
+Since MLR has a larger R-squared value than PLSR, the MLR model is better than the PLSR model. Using two metrics which are MAE and R-squared, we can conclude that the MLR model is more optimal than the PLSR model.
+
+
+
+**2. Make two predictions, one with the MLR model and one with the PLSR model, of lpsa for a male with the following characteristics: lcavol = 2.8, lweight = 3.12, svi = 1, age = 60, gleason = 7.**
+
+```{r}
+patient <- data.frame(
+  lcavol = 2.8,
+  lweight = 3.12,
+  svi = 1,
+  age = 60,
+  gleason = 7)
+
+predict(MLR, type = "response", newdata = patient)
+predict(PLSR, type = "response", ncomp = 2, newdata = patient)
+```
+The prediction of the MLR model is 2.549041 and the prediction of the PLSR model is 2.678928 when there are two components. So when we put new data in each variable, the value of lpsa can actually be predicted.
+
+**3. Compute a 95% confidence interval for the prediction obtained with the MLR model in the previous question.**
+
+```{r}
+# Confidence interval of MLR
+MLR_CI <- predict(MLR, 
+                   type = "response",
+                   newdata = patient,
+                   interval = 'confidence',
+                   level = 0.95)
+MLR_CI
+```
+
+Confidence interval (CI) is a numerical representation of the uncertainty of a statistical estimate, indicating that the statistical estimate may exist within a certain range within this interval. By adding "interval = 'confidence' and 'level = 0.95'" in the prediction, the confidence interval of prediction from the MLR model appears.The 'predict' command is used to predict the response variable values using a model already fitted to the data for a particular set of predictor variable values. This command returns three elements. 'Fit' represents the predicted values of the response variable given the predictor variable values, 'lwr' denotes the lower confidence interval limit for the predicted values, and finally, 'upr' signifies the upper confidence interval limit for the predicted values. Therefore, using the 'predict' command, both the number of beverages and the confidence interval can be predicted. In our data, the lower bound of CI is 1.748261 and the upper bound is 3.349822. Thus, the 95% confidence interval for this model is [1.748261, 3.349822.], indicating the uncertainty around the mean prediction.
+
+
+**3.3 Extra credit: bootstrapping The last question involves a concept that falls outside of the scope of the course. With some assistance, however, it is possible to tackle this question even with relatively little background. You may choose to solve this question for 2 extra marks.**
+
+**1. Use bootstrap resampling with 1000 iterations to estimate a 95% confidence interval for the prediction obtained with the PLSR model in section 3.2, question 2. Bootstrapping is a technique that we haven’t covered in class, but it is worth knowing about. It is a very flexible, but computationally intensive technique that allows you estimate various quantities associated to a distribution of interest. Here we use it derive confidence intervals for the regression coefficients in the PLSR model. To solve this question successfully, and to get the most out of it, you are encouraged to use ChatGPT or any other generative AI. Ask the AI to explain (1) the procedure, and (2) how to use the boot package. Keep asking follow-up questions until you are satisfied that you understand the idea. You can also ask the AI to generate some sample code for you, or to suggest which functions to use. In your report, describe your findings in your own words. Make sure that you can explain everything that you write down in your report.**
+
+```{r}
+# Confidence interval of PLSR
+library(boot)
+
+# Bootstrap resampling function
+boot_fn <- function(data, indices) {
+  sample <- data[indices, ]
+  model <- plsr(
+    lpsa ~ lcavol + lweight + age + svi + gleason, 
+    data = sample,
+    ncomp = 2)
+  
+  # Generate predictions for bootstrap sample
+  predict(model, 
+          newdata = patient, 
+          interval = "confidence")}
+
+# Perform bootstrap resampling
+PLSR_bootstrap <- boot(data = prostate_train, 
+                  statistic = boot_fn, 
+                  R = 1000)
+
+# Calculate confidence intervals
+PLSR_CI <- t(sapply(1:ncol(PLSR_bootstrap$t), function(i) {
+  quantile(PLSR_bootstrap$t[, i], c(0.025, 0.975))
+}))
+
+# Print confidence intervals
+PLSR_CI
+```
+The confidence interval of MLR can be calculated easily without bootstrapping because of the relative stability and interpretability of MLR models. However, the PLSR model has to use bootstrapping to define the confidence interval. To achieve this, the boot package which provides the function for bootstrapping is required. The bootstrap resampling function ('boot_fn') is defined with two arguments (data and indices). Inside the function, it creates a bootstrap sample ('sample'), fits a PLSR model ('plsr') to the sample, and generates predictions with confidence intervals for the bootstrap sample. Then 'PLSR_bootstrap' conducts bootstrap resampling using 'boot'. It resamples from the 'prostate_train' and applies the 'boot_fn' function defined previously. The argument 'R = 1000' specifies that 1000 bootstrap samples. 'PLSR_CI' calculates the confidence interval for each parameter of the PLSR model. 
+
+
+**2. Compare the confidence intervals for the predictions of the MLR and PLSR models. Which model delivers more confident predictions?**
+```{r}
+MLR_CI
+PLSR_CI
+```
+The confidence interval of the MLR model was from 1.748261 to 3.349822. The PLSR model has a lower bound of about 2.1 and an upper bound of about 3.5. The confidence intervals of predictions from the PLSR model can vary between different performances due to the variability introduced by bootstrapping or resampling methods. The narrower the confidence interval, the more confident the model's predictions are. As a result, the PLSR model delivers more confident predictions than the MLR model.
+
+
+
+
